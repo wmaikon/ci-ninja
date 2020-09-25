@@ -52,9 +52,24 @@ app.post('/', (req, res) => {
     res.end()
     return
   }
-  const scriptPath = `./scripts/${payload.repository.name}-${payload.ref.split('/').pop()}.sh`
+
+  const scriptPath = path.resolve(__dirname, `./scripts/${payload.repository.name}-${payload.ref.split('/').pop()}.sh`);
   console.log(`Executing task at: ${scriptPath}`)
-  myExec(scriptPath)
+  
+  const myExecution = myExec(scriptPath)
+
+  if(myExecution) {
+    myExecution.stdout.on('data', (data)=>{
+      console.log(data); 
+    });
+    myExecution.stderr.on('data', (data)=>{
+        console.error(data);
+    });
+
+    myExecution.on('close', (code) => {
+      console.log(`child process exited with code ${code}`);
+    });
+  }
 
   res.writeHead(200)
   res.end()
@@ -65,7 +80,10 @@ http.createServer(app).listen(app.get('port'), function () {
 })
 
 function myExec(line) {
-  if (!fs.existsSync(line)) return
+  if (!fs.existsSync(line)){
+    console.log('looks like script wasn\'t found :(')
+    return
+  }
   
   const exec = require('child_process').exec
   const execCallback = (error) => {
@@ -73,7 +91,7 @@ function myExec(line) {
       console.log('exec error: ' + error)
     }
   }
-  exec(line, execCallback)
+  return exec(line, execCallback)
 }
 
 function inAuthorizedSubnet(ip) {
